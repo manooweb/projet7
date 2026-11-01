@@ -28,7 +28,8 @@ jobs:
       run:
         working-directory: back
     env:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      # Seulement un booléen : le jeton lui-même n'est exposé qu'à l'étape d'analyse
+      HAS_SONAR_TOKEN: ${{ secrets.SONAR_TOKEN != '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -45,7 +46,9 @@ jobs:
         run: ./gradlew build
 
       - name: Analyse SonarQube Cloud
-        if: env.SONAR_TOKEN != '' # absent sur les PR de forks et de Dependabot
+        if: env.HAS_SONAR_TOKEN == 'true' # absent sur les PR de forks et de Dependabot
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: ./gradlew sonar -Dsonar.qualitygate.wait=true
 
       - name: Rapports de tests et de couverture
@@ -66,7 +69,8 @@ jobs:
       run:
         working-directory: front
     env:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      # Seulement un booléen : le jeton lui-même n'est exposé qu'à l'étape d'analyse
+      HAS_SONAR_TOKEN: ${{ secrets.SONAR_TOKEN != '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -89,7 +93,9 @@ jobs:
         run: npm run build
 
       - name: Analyse SonarQube Cloud
-        if: env.SONAR_TOKEN != ''
+        if: env.HAS_SONAR_TOKEN == 'true'
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9 # v8.3.0
         with:
           projectBaseDir: front
