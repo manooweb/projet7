@@ -1,0 +1,38 @@
+# Lancement local de MicroCRM : docker compose up --build
+# Les deux services sont construits à partir des cibles du Dockerfile, les mêmes que celles publiées par la CI.
+
+services:
+  back:
+    build:
+      context: .
+      target: back
+    image: microcrm-back
+    ports:
+      - "8080:8080" # publié : le front appelle l'API depuis le navigateur sur http://localhost:8080
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/persons"]
+      interval: 10s
+      timeout: 3s
+      start_period: 30s
+      retries: 5
+    restart: unless-stopped
+
+  front:
+    build:
+      context: .
+      target: front
+    image: microcrm-front
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data     # autorité de certification locale de Caddy, conservée entre deux conteneurs
+      - caddy_config:/config
+    depends_on:
+      back:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
