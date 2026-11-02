@@ -1,0 +1,52 @@
+# Mises à jour des dépendances par Dependabot : une PR par groupe, testée par la CI comme toute autre PR.
+# cooldown : délai avant de proposer une version tout juste publiée (une version compromise est souvent retirée en quelques jours).
+# Les montées de version majeure (Spring Boot 4, Angular récent) sont écartées : elles relèvent du plan de mise à jour.
+# Les mises à jour de sécurité ne sont concernées ni par le délai ni par l'exclusion des majeures.
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /front
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      npm:
+        patterns: ["*"]
+
+  - package-ecosystem: gradle
+    directory: /back
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      gradle:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]

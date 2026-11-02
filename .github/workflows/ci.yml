@@ -87,6 +87,9 @@ jobs:
       - name: Installation des dépendances
         run: npm ci
 
+      - name: Signatures des paquets npm
+        run: npm audit signatures # vérifie que les paquets installés sont bien signés par le registre npm
+
       - name: Tests et couverture
         run: npm run test:ci
 
