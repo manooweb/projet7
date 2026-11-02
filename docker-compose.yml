@@ -1,12 +1,14 @@
-# Lancement local de MicroCRM : docker compose up --build
-# Les deux services sont construits à partir des cibles du Dockerfile, les mêmes que celles publiées par la CI.
+# MicroCRM avec Docker Compose.
+# - En local : docker compose up --build --wait construit les images à partir des cibles du Dockerfile.
+# - Sur un serveur : docker compose pull puis docker compose up -d --no-build récupèrent les images publiées par la CI sur GHCR.
+# MICROCRM_TAG choisit la version publiée (SHA d'un commit de main) ; par défaut, latest.
 
 services:
   back:
     build:
       context: .
       target: back
-    image: microcrm-back
+    image: ghcr.io/manooweb/microcrm-back:${MICROCRM_TAG:-latest}
     ports:
       - "8080:8080" # publié : le front appelle l'API depuis le navigateur sur http://localhost:8080
     healthcheck:
@@ -21,13 +23,20 @@ services:
     build:
       context: .
       target: front
-    image: microcrm-front
+    image: ghcr.io/manooweb/microcrm-front:${MICROCRM_TAG:-latest}
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - caddy_data:/data     # autorité de certification locale de Caddy, conservée entre deux conteneurs
       - caddy_config:/config
+    healthcheck:
+      # certificat non vérifié : on teste que Caddy sert le front, pas la confiance dans son autorité
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "--no-check-certificate", "https://localhost/"]
+      interval: 10s
+      timeout: 3s
+      start_period: 10s
+      retries: 5
     depends_on:
       back:
         condition: service_healthy

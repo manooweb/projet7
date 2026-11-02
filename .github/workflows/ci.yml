@@ -1,4 +1,5 @@
-# Intégration continue de MicroCRM : build, tests et analyse SonarQube Cloud du back et du front.
+# Intégration et déploiement continus de MicroCRM : build, tests et analyse SonarQube Cloud du back et du front,
+# puis build, scan Trivy et publication des images sur GHCR (push sur main seulement), suivis d'un test de fumée.
 # Les actions sont fixées par SHA de commit (un tag peut être déplacé) ; la version figure en commentaire.
 # Un jeton SonarQube par projet (SONAR_TOKEN_BACK, SONAR_TOKEN_FRONT) : chacun ne permet d'analyser que son projet.
 
@@ -112,3 +113,97 @@ jobs:
           name: front-couverture
           path: front/coverage/microcrm
           retention-days: 14
+
+  images:
+    name: Image ${{ matrix.service }} (build, Trivy, GHCR)
+    needs: [back, front]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write # publication sur GHCR ; le jeton n'est utilisé qu'à l'étape de publication
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: back
+            trivy-gate: --pkg-types os # bloque sur le système de l'image ; dépendances de Spring Boot en rapport seul
+          - service: front
+            trivy-gate: "" # bloque sur le système et le serveur web (Caddy)
+    env:
+      IMAGE: ghcr.io/manooweb/microcrm-${{ matrix.service }}
+      TRIVY: aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build de l'image
+        run: >
+          docker build --target ${{ matrix.service }}
+          --label org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          --label org.opencontainers.image.revision=${{ github.sha }}
+          -t "$IMAGE:$GITHUB_SHA" .
+
+      - name: Rapport Trivy (HIGH et CRITICAL)
+        run: >
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v trivy-cache:/root/.cache
+          -v "$PWD/.trivyignore.yaml:/trivyignore.yaml:ro" "$TRIVY"
+          image --severity HIGH,CRITICAL --ignorefile /trivyignore.yaml --show-suppressed "$IMAGE:$GITHUB_SHA"
+
+      - name: Contrôle Trivy (bloquant)
+        run: >
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v trivy-cache:/root/.cache
+          -v "$PWD/.trivyignore.yaml:/trivyignore.yaml:ro" "$TRIVY"
+          image --quiet --severity HIGH,CRITICAL --ignorefile /trivyignore.yaml ${{ matrix.trivy-gate }}
+          --exit-code 1 "$IMAGE:$GITHUB_SHA"
+
+      - name: Publication sur GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker tag "$IMAGE:$GITHUB_SHA" "$IMAGE:latest"
+          docker push "$IMAGE:$GITHUB_SHA"
+          docker push "$IMAGE:latest"
+          docker logout ghcr.io
+
+  smoke-test:
+    name: Test de fumée (images publiées)
+    needs: images
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    env:
+      MICROCRM_TAG: ${{ github.sha }} # les images que ce run vient de publier
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Démarrage avec les images publiées
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker compose pull
+          docker compose up -d --no-build --wait
+          docker logout ghcr.io
+
+      - name: API et front répondent
+        run: |
+          curl -fsS -o /dev/null http://localhost:8080/persons
+          docker compose cp front:/data/caddy/pki/authorities/local/root.crt caddy-root.crt
+          curl -fsS -o /dev/null --cacert caddy-root.crt https://localhost/
+
+      - name: Journaux en cas d'échec
+        if: failure()
+        run: docker compose logs
+
+      - name: Arrêt
+        if: always()
+        run: docker compose down -v

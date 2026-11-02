@@ -133,6 +133,17 @@ C'est la façon recommandée de lancer l'application complète : les images sont
 
 L'application est disponible sur https://localhost et l'API sur http://localhost:8080.
 
+#### Avec les images publiées (sans build)
+
+La CI publie les images sur GitHub Container Registry à chaque push sur `main` : `ghcr.io/manooweb/microcrm-back` et `ghcr.io/manooweb/microcrm-front`, taguées par le SHA du commit et `latest`.
+
+```shell
+docker compose pull                   # dernières images publiées (latest)
+docker compose up -d --no-build --wait
+
+MICROCRM_TAG=<sha> docker compose pull && MICROCRM_TAG=<sha> docker compose up -d --no-build --wait   # une version précise
+```
+
 #### Certificat HTTPS local
 
 Caddy génère sa propre autorité de certification, conservée dans le volume `caddy_data`. Pour que le navigateur fasse confiance à https://localhost, importer cette autorité une seule fois :
