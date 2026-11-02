@@ -106,6 +106,57 @@ cd back
 ./gradlew test
 ```
 
+### Lancer avec Docker Compose
+
+C'est la façon recommandée de lancer l'application complète : les images sont construites à partir des cibles `back` et `front` du `Dockerfile`, les mêmes que celles publiées par la CI.
+
+#### Dépendances
+
+- [Docker](https://docs.docker.com/get-docker/) avec le plugin Compose (`docker compose version`)
+- Ports 80, 443 et 8080 libres sur le poste
+
+#### Procédure
+
+1. Construire les images et démarrer les services, depuis la racine du dépôt :
+
+   ```shell
+   docker compose up --build --wait
+   ```
+
+   `--wait` rend la main une fois le back déclaré sain par son healthcheck et le front démarré (mode détaché implicite).
+
+2. Vérifier l'état des services :
+
+   ```shell
+   docker compose ps
+   ```
+
+L'application est disponible sur https://localhost et l'API sur http://localhost:8080.
+
+#### Certificat HTTPS local
+
+Caddy génère sa propre autorité de certification, conservée dans le volume `caddy_data`. Pour que le navigateur fasse confiance à https://localhost, importer cette autorité une seule fois :
+
+```shell
+docker compose cp front:/data/caddy/pki/authorities/local/root.crt ~/caddy-root.crt
+```
+
+- Firefox : _Paramètres > Vie privée et sécurité > Sécurité logicielle et des connexions > Certificats > Gérer les certificats > Autorités > Importer_, puis cocher « Confirmer cette AC pour identifier des sites web ».
+- Chrome / Chromium (Linux, paquet `libnss3-tools`) :
+
+  ```shell
+  certutil -d sql:$HOME/.pki/nssdb -A -t "C,," -n "Caddy local" -i ~/caddy-root.crt
+  ```
+
+Tant que le volume `caddy_data` est conservé, l'autorité reste la même et l'import n'est pas à refaire.
+
+#### Arrêter
+
+```shell
+docker compose down      # conserve les volumes, donc l'autorité de certification
+docker compose down -v   # supprime aussi les volumes : l'autorité sera régénérée et à réimporter
+```
+
 ### Images Docker
 
 #### Client
