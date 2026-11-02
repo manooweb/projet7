@@ -1,4 +1,5 @@
 # Images officielles, minimales (Alpine) et à version fixe. Les tests sont exécutés par la CI, pas pendant le build des images.
+# Les images d'exécution appliquent les correctifs Alpine publiés depuis la construction de leur image de base (apk upgrade).
 
 # ---- Build du front ----
 FROM node:22-alpine3.24 AS front-build
@@ -29,7 +30,8 @@ COPY misc/docker/Caddyfile /etc/caddy/Caddyfile
 COPY --from=front-build /src/dist/microcrm/browser /app/front
 
 # Utilisateur non-root ; /data contient l'autorité de certification locale de Caddy (à conserver dans un volume)
-RUN addgroup -S caddy && adduser -S -G caddy caddy \
+RUN apk upgrade --no-cache \
+    && addgroup -S caddy && adduser -S -G caddy caddy \
     && chown -R caddy:caddy /data /config
 USER caddy
 
@@ -38,7 +40,8 @@ EXPOSE 80 443
 # ---- Back : JRE seul ----
 FROM eclipse-temurin:21-jre-alpine-3.24 AS back
 
-RUN addgroup -S microcrm && adduser -S -G microcrm microcrm
+RUN apk upgrade --no-cache \
+    && addgroup -S microcrm && adduser -S -G microcrm microcrm
 
 COPY --from=back-build /src/microcrm.jar /app/back/microcrm.jar
 
@@ -52,7 +55,8 @@ CMD ["java", "-jar", "/app/back/microcrm.jar"]
 # ---- Standalone : front et back dans un seul conteneur (non publié) ----
 FROM alpine:3.24 AS standalone
 
-RUN apk add --no-cache caddy openjdk21-jre-headless supervisor
+RUN apk upgrade --no-cache \
+    && apk add --no-cache caddy openjdk21-jre-headless supervisor
 
 COPY --from=front-build /src/dist/microcrm/browser /app/front
 COPY misc/docker/Caddyfile /app/Caddyfile
