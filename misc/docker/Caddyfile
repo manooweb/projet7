@@ -1,3 +1,8 @@
+{
+	# L'autorité locale sert au navigateur du poste (importée à la main), pas au conteneur
+	skip_install_trust
+}
+
 localhost {
 	root * /app/front
 	encode gzip

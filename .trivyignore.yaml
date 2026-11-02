@@ -1,0 +1,8 @@
+# Exceptions au contrôle Trivy des images : une entrée par faille acceptée, justifiée et datée.
+# À l'expiration (expired_at), la faille bloque de nouveau et doit être réexaminée.
+vulnerabilities:
+  - id: CVE-2026-116587
+    purls:
+      - "pkg:golang/github.com/go-jose/go-jose/v3"
+    expired_at: 2026-12-31
+    statement: "go-jose v3 embarqué dans Caddy 2.11.7 : aucun correctif publié au 02/11/2026"

@@ -23,19 +23,42 @@ COPY back/ ./
 RUN ./gradlew bootJar --no-daemon \
     && cp build/libs/*.jar /src/microcrm.jar
 
-# ---- Front : Caddy sert l'application Angular ----
-FROM caddy:2.11-alpine AS front
+# ---- Build de Caddy : dépendances Go corrigées ----
+# Caddy 2.11.7 embarque des versions vulnérables de x/net et go-jose ; on le recompile avec la version de Go
+# de l'image officielle de build et les versions qui corrigent ces failles. À retirer quand une version de Caddy les intégrera.
+FROM caddy:2.11-builder-alpine AS caddy-build
 
+RUN xcaddy build v2.11.7 \
+    --replace github.com/go-jose/go-jose/v4=github.com/go-jose/go-jose/v4@v4.1.6 \
+    --replace golang.org/x/net=golang.org/x/net@v0.60.0 \
+    && apk add --no-cache libcap-setcap \
+    && setcap cap_net_bind_service=+ep /usr/bin/caddy
+
+# ---- Front : Caddy sert l'application Angular ----
+# Alpine nue plutôt que l'image officielle de Caddy, qui embarquerait en plus son propre binaire (non corrigé) et curl ;
+# reprend de l'image officielle ce qui sert ici : certificats, types MIME (mailcap), dossiers et variables XDG.
+FROM alpine:3.24 AS front
+
+# Utilisateur non-root, qui écoute sur 80 et 443 grâce à la capacité cap_net_bind_service (posée à l'étape de build, conservée par COPY) ;
+# /data contient l'autorité de certification locale de Caddy (à conserver dans un volume)
+RUN apk upgrade --no-cache \
+    && apk add --no-cache ca-certificates mailcap \
+    && mkdir -p /config/caddy /data/caddy /etc/caddy \
+    && addgroup -S caddy && adduser -S -G caddy caddy \
+    && chown -R caddy:caddy /config /data
+
+COPY --from=caddy-build /usr/bin/caddy /usr/bin/caddy
 COPY misc/docker/Caddyfile /etc/caddy/Caddyfile
 COPY --from=front-build /src/dist/microcrm/browser /app/front
 
-# Utilisateur non-root ; /data contient l'autorité de certification locale de Caddy (à conserver dans un volume)
-RUN apk upgrade --no-cache \
-    && addgroup -S caddy && adduser -S -G caddy caddy \
-    && chown -R caddy:caddy /data /config
+ENV XDG_CONFIG_HOME=/config \
+    XDG_DATA_HOME=/data
+
 USER caddy
 
 EXPOSE 80 443
+
+CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
 
 # ---- Back : JRE seul ----
 FROM eclipse-temurin:21-jre-alpine-3.24 AS back
