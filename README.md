@@ -135,10 +135,10 @@ L'application est disponible sur https://localhost et l'API sur http://localhost
 
 #### Avec les images publiées (sans build)
 
-La CI publie les images sur GitHub Container Registry à chaque push sur `main` : `ghcr.io/manooweb/microcrm-back` et `ghcr.io/manooweb/microcrm-front`, taguées par le SHA du commit et `latest`.
+La CI publie les images sur GitHub Container Registry à chaque push sur `main` : `ghcr.io/manooweb/microcrm-back` et `ghcr.io/manooweb/microcrm-front`, taguées par le SHA du commit. `latest` ne pointe sur ces images qu'une fois le test de fumée réussi.
 
 ```shell
-docker compose pull                   # dernières images publiées (latest)
+docker compose pull                   # dernières images validées (latest)
 docker compose up -d --no-build --wait
 
 MICROCRM_TAG=<sha> docker compose pull && MICROCRM_TAG=<sha> docker compose up -d --no-build --wait   # une version précise

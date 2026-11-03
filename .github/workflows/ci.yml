@@ -1,5 +1,6 @@
 # Intégration et déploiement continus de MicroCRM : build, tests et analyse SonarQube Cloud du back et du front,
 # puis build, scan Trivy et publication des images sur GHCR (push sur main seulement), suivis d'un test de fumée.
+# latest n'avance qu'après le test de fumée : une image publiée mais défaillante n'est jamais récupérée par défaut.
 # Les actions sont fixées par SHA de commit (un tag peut être déplacé) ; la version figure en commentaire.
 # Un jeton SonarQube par projet (SONAR_TOKEN_BACK, SONAR_TOKEN_FRONT) : chacun ne permet d'analyser que son projet.
 
@@ -164,9 +165,7 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          docker tag "$IMAGE:$GITHUB_SHA" "$IMAGE:latest"
           docker push "$IMAGE:$GITHUB_SHA"
-          docker push "$IMAGE:latest"
           docker logout ghcr.io
 
   smoke-test:
@@ -207,3 +206,24 @@ jobs:
       - name: Arrêt
         if: always()
         run: docker compose down -v
+
+  promotion:
+    name: Promotion latest (images validées)
+    needs: smoke-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      packages: write
+    steps:
+      - name: latest pointe sur les images testées
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          for service in back front; do
+            image="ghcr.io/manooweb/microcrm-$service"
+            # copie à l'identique dans le registre (même digest) : l'image n'est ni retéléchargée ni reconstruite
+            docker buildx imagetools create --prefer-index=false -t "$image:latest" "$image:$GITHUB_SHA"
+          done
+          docker logout ghcr.io
