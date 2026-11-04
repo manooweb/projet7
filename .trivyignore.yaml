@@ -1,5 +1,5 @@
-# Exceptions au contrôle Trivy des images : une entrée par faille acceptée, justifiée et datée.
-# À l'expiration (expired_at), la faille bloque de nouveau et doit être réexaminée.
+# Exceptions du rapport Trivy des images : une entrée par faille acceptée, justifiée et datée.
+# À l'expiration (expired_at), la faille réapparaît dans le rapport et doit être réexaminée.
 vulnerabilities:
   - id: CVE-2026-116587
     purls:
