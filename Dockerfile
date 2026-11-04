@@ -71,6 +71,9 @@ COPY --from=back-build /src/microcrm.jar /app/back/microcrm.jar
 WORKDIR /app
 USER microcrm
 
+# Profil docker : logs en JSON et journal des requêtes, collectés par ELK (application-docker.properties)
+ENV SPRING_PROFILES_ACTIVE=docker
+
 EXPOSE 8080
 
 CMD ["java", "-jar", "/app/back/microcrm.jar"]

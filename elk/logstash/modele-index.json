@@ -1,0 +1,35 @@
+{
+  "index_patterns": ["microcrm-logs-*"],
+  "priority": 200,
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0
+    },
+    "mappings": {
+      "dynamic_templates": [
+        {
+          "textes_en_valeurs_exactes": {
+            "match_mapping_type": "string",
+            "unmatch": "message",
+            "mapping": { "type": "keyword", "ignore_above": 1024 }
+          }
+        }
+      ],
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "message": { "type": "text" },
+        "http": {
+          "properties": {
+            "response": {
+              "properties": {
+                "status_code": { "type": "short" },
+                "duree_ms": { "type": "float" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

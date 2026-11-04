@@ -1,0 +1,21 @@
+# Collecte : lit les logs écrits par Docker pour chaque conteneur et ne garde que ceux de MicroCRM.
+filebeat.inputs:
+  - type: filestream
+    id: conteneurs-docker
+    paths:
+      - /var/lib/docker/containers/*/*.log
+    parsers:
+      - container: ~ # extrait la ligne écrite par le conteneur (message) et son horodatage
+
+processors:
+  - add_docker_metadata: ~ # nom du conteneur, image, labels du compose
+  - drop_event:
+      when:
+        not:
+          contains:
+            container.image.name: "microcrm"
+
+output.logstash:
+  hosts: ["logstash:5044"]
+
+logging.level: warning

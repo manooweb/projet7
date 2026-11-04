@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Logs du back en JSON, une ligne par événement, pour la collecte par la stack ELK.
+     Activé dans l'image Docker par le profil docker (application-docker.properties) ; en développement (bootRun), Spring Boot garde son format texte. -->
+<configuration>
+    <appender name="CONSOLE_JSON" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.classic.encoder.JsonEncoder"/>
+    </appender>
+    <root level="INFO">
+        <appender-ref ref="CONSOLE_JSON"/>
+    </root>
+</configuration>

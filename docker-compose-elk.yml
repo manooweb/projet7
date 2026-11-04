@@ -1,0 +1,96 @@
+# Monitoring local de MicroCRM avec la stack ELK (poste de développement, hors CI/CD).
+# Lancement : docker compose -f docker-compose-elk.yml up -d --wait, puis Kibana sur http://localhost:5601
+# Chaîne : Filebeat lit les logs des conteneurs MicroCRM -> Logstash les structure -> Elasticsearch les stocke -> Kibana les affiche.
+# Sécurité désactivée (pas de mot de passe ni de TLS) : acceptable uniquement en local, d'où des ports ouverts sur 127.0.0.1 seulement.
+
+name: microcrm-elk # projet distinct de l'application : les deux compose ne se gênent pas
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.19.24
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    ports:
+      - "127.0.0.1:9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    mem_limit: 2g
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s'"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 10
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.19.24
+    environment:
+      - LS_JAVA_OPTS=-Xms512m -Xmx512m
+      - xpack.monitoring.enabled=false
+    volumes:
+      - ./elk/logstash/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+      - ./elk/logstash/modele-index.json:/usr/share/logstash/modele-index.json:ro
+    mem_limit: 1g
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.19.24
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - I18N_LOCALE=fr-FR
+      - TELEMETRY_OPTIN=false # aucune donnée d'usage envoyée à Elastic
+      - TELEMETRY_BANNER=false
+      - XPACK_SECURITY_SHOWINSECURECLUSTERWARNING=false # sécurité désactivée volontairement (local)
+    ports:
+      - "127.0.0.1:5601:5601"
+    mem_limit: 1g
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:5601/api/status | grep -q '\"level\":\"available\"'"]
+      interval: 10s
+      timeout: 5s
+      start_period: 90s
+      retries: 15
+
+  # Import de la vue de données et du tableau de bord, une fois Kibana prêt
+  kibana-setup:
+    image: docker.elastic.co/kibana/kibana:8.19.24
+    volumes:
+      - ./elk/kibana/tableau-de-bord.ndjson:/setup/tableau-de-bord.ndjson:ro
+    entrypoint:
+      - curl
+      - -fsS
+      - -X
+      - POST
+      - http://kibana:5601/api/saved_objects/_import?overwrite=true
+      - -H
+      - "kbn-xsrf: true"
+      - --form
+      - file=@/setup/tableau-de-bord.ndjson
+    depends_on:
+      kibana:
+        condition: service_healthy
+    restart: "no"
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.19.24
+    user: root # lecture des fichiers de logs de Docker, réservés à root
+    command: ["filebeat", "-e", "--strict.perms=false"]
+    volumes:
+      - ./elk/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - filebeat_data:/usr/share/filebeat/data
+    mem_limit: 256m
+    depends_on:
+      - logstash
+
+volumes:
+  es_data:
+  filebeat_data:
