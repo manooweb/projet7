@@ -4,6 +4,12 @@
 }
 
 localhost {
+	# Journal des requêtes (statut, durée) en JSON sur la sortie standard, collecté par ELK
+	log {
+		output stdout
+		format json
+	}
+
 	root * /app/front
 	encode gzip
 	try_files {path} /index.html

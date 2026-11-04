@@ -168,6 +168,50 @@ docker compose down      # conserve les volumes, donc l'autorité de certificati
 docker compose down -v   # supprime aussi les volumes : l'autorité sera régénérée et à réimporter
 ```
 
+### Monitoring local avec ELK
+
+Centralise les logs du back et du front lancés avec Docker Compose, et les affiche dans un tableau de bord Kibana : volume, erreurs, durée des requêtes de l'API.
+
+| Composant | Rôle |
+|---|---|
+| Filebeat | Lit les logs des conteneurs MicroCRM écrits par Docker |
+| Logstash | Les structure (`elk/logstash/logstash.conf`) |
+| Elasticsearch | Les stocke, un index par jour (`microcrm-logs-AAAA.MM.JJ`) |
+| Kibana | Les affiche ; tableau de bord importé au démarrage (`elk/kibana/tableau-de-bord.ndjson`) |
+
+Formats des logs : le back écrit en JSON grâce au profil Spring `docker`, activé dans l'image (`application-docker.properties`) ; Caddy écrit le journal des requêtes du front en JSON.
+
+#### Dépendances
+
+- Docker Engine sous Linux : Filebeat lit `/var/lib/docker/containers`.
+- Environ 4 Go de mémoire libre (limites : Elasticsearch 2 Go, Logstash 1 Go, Kibana 1 Go, Filebeat 256 Mo).
+
+#### Procédure
+
+1. Lancer l'application, puis la stack ELK (projet Compose distinct, `microcrm-elk`) :
+
+    ```shell
+    docker compose up -d --build --wait
+    docker compose -f docker-compose-elk.yml up -d
+    ```
+
+2. Après environ une minute, ouvrir le tableau de bord *MicroCRM – logs de l'application* : http://localhost:5601/app/dashboards#/view/microcrm-tableau-de-bord
+
+3. Pour alimenter le tableau de bord, générer du trafic de démonstration (requêtes normales, 404, 500, avertissement SQL) :
+
+    ```shell
+    elk/generer-trafic.sh 60
+    ```
+
+La sécurité d'Elasticsearch est désactivée (ni mot de passe ni TLS) : les ports 9200 et 5601 ne sont ouverts que sur `127.0.0.1`. Cette configuration est réservée au poste de développement.
+
+#### Arrêter
+
+```shell
+docker compose -f docker-compose-elk.yml down      # conserve les logs indexés
+docker compose -f docker-compose-elk.yml down -v   # supprime aussi les logs indexés
+```
+
 ### Images Docker
 
 #### Client
