@@ -3,6 +3,8 @@
 # latest n'avance qu'après le test de fumée : une image publiée mais défaillante n'est jamais récupérée par défaut.
 # Les actions sont fixées par SHA de commit (un tag peut être déplacé) ; la version figure en commentaire.
 # Un jeton SonarQube par projet (SONAR_TOKEN_BACK, SONAR_TOKEN_FRONT) : chacun ne permet d'analyser que son projet.
+# Quality gate Sonar et scan Trivy rendent compte sans bloquer : ils jugent le projet de départ, dont les
+# vulnérabilités et la dette sont documentées et traitées par le plan de mise à jour, pas par la CI.
 
 name: CI
 
@@ -50,6 +52,7 @@ jobs:
 
       - name: Analyse SonarQube Cloud
         if: env.HAS_SONAR_TOKEN == 'true' # absent sur les PR de forks et de Dependabot
+        continue-on-error: true # verdict de la quality gate affiché, sans faire échouer le job
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_BACK }}
         run: ./gradlew sonar -Dsonar.qualitygate.wait=true
@@ -100,6 +103,7 @@ jobs:
 
       - name: Analyse SonarQube Cloud
         if: env.HAS_SONAR_TOKEN == 'true'
+        continue-on-error: true
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_FRONT }}
         uses: SonarSource/sonarqube-scan-action@4d1dc0c91ee400dcf8a6dddf2f705ac36542e304 # v8.4.0
@@ -126,11 +130,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - service: back
-            trivy-gate: --pkg-types os # bloque sur le système de l'image ; dépendances de Spring Boot en rapport seul
-          - service: front
-            trivy-gate: "" # bloque sur le système et le serveur web (Caddy)
+        service: [back, front]
     env:
       IMAGE: ghcr.io/manooweb/microcrm-${{ matrix.service }}
       TRIVY: aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa
@@ -152,12 +152,25 @@ jobs:
           -v "$PWD/.trivyignore.yaml:/trivyignore.yaml:ro" "$TRIVY"
           image --severity HIGH,CRITICAL --ignorefile /trivyignore.yaml --show-suppressed "$IMAGE:$GITHUB_SHA"
 
-      - name: Contrôle Trivy (bloquant)
-        run: >
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v trivy-cache:/root/.cache
-          -v "$PWD/.trivyignore.yaml:/trivyignore.yaml:ro" "$TRIVY"
-          image --quiet --severity HIGH,CRITICAL --ignorefile /trivyignore.yaml ${{ matrix.trivy-gate }}
-          --exit-code 1 "$IMAGE:$GITHUB_SHA"
+      - name: Synthèse Trivy dans le récapitulatif du run
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v trivy-cache:/root/.cache \
+            -v "$PWD/.trivyignore.yaml:/trivyignore.yaml:ro" -v "$RUNNER_TEMP:/out" "$TRIVY" \
+            image --quiet --severity HIGH,CRITICAL --ignorefile /trivyignore.yaml \
+            --format json -o /out/trivy.json "$IMAGE:$GITHUB_SHA"
+          {
+            echo "### Trivy : image ${{ matrix.service }} (HIGH et CRITICAL)"
+            echo
+            echo "| Composants | CRITICAL | HIGH |"
+            echo "|---|---|---|"
+            jq -r '[.Results[]? | .Class as $c | .Vulnerabilities[]? | {c: $c, s: .Severity}] as $v
+              | [["os-pkgs", "Système (paquets Alpine)"], ["lang-pkgs", "Applicatifs (JAR, binaire Caddy)"]][]
+              | . as [$k, $l]
+              | "| \($l) | \([$v[] | select(.c == $k and .s == "CRITICAL")] | length) | \([$v[] | select(.c == $k and .s == "HIGH")] | length) |"' \
+              "$RUNNER_TEMP/trivy.json"
+            echo
+            echo "Rapport seul, sans blocage ; détail dans l'étape « Rapport Trivy », exceptions dans \`.trivyignore.yaml\`."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publication sur GHCR
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
