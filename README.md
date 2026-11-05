@@ -4,6 +4,11 @@
 
 # MicroCRM (P7 - Développeur Full-Stack - Java et Angular - Mettez en œuvre l'intégration et le déploiement continu d'une application Full-Stack)
 
+[![Fréquence de déploiement](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmanooweb%2Fprojet7%2Fmetriques%2Ffrequence-deploiement.json)](https://github.com/manooweb/projet7/blob/metriques/metriques.md)
+[![Délai de livraison](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmanooweb%2Fprojet7%2Fmetriques%2Fdelai-livraison.json)](https://github.com/manooweb/projet7/blob/metriques/metriques.md)
+[![Taux d'échec des changements](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmanooweb%2Fprojet7%2Fmetriques%2Ftaux-echec.json)](https://github.com/manooweb/projet7/blob/metriques/metriques.md)
+[![Temps de rétablissement](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmanooweb%2Fprojet7%2Fmetriques%2Fmttr.json)](https://github.com/manooweb/projet7/blob/metriques/metriques.md)
+
 MicroCRM est une application de démonstration basique ayant pour être objectif de servir de socle pour le module "P7 - Développeur Full-Stack".
 
 L'application MicroCRM est une implémentation simplifiée d'un ["CRM" (Customer Relationship Management)](https://fr.wikipedia.org/wiki/Gestion_de_la_relation_client). Les fonctionnalités sont limitées à la création, édition et la visualisations des individus liés à des organisations.
@@ -211,6 +216,22 @@ La sécurité d'Elasticsearch est désactivée (ni mot de passe ni TLS) : les po
 docker compose -f docker-compose-elk.yml down      # conserve les logs indexés
 docker compose -f docker-compose-elk.yml down -v   # supprime aussi les logs indexés
 ```
+
+### Métriques DORA et KPI du pipeline
+
+Les badges en tête de ce README donnent les 4 métriques DORA ; ils renvoient au rapport complet (DORA, délai de livraison par pull request, KPI du pipeline).
+
+- `scripts/metriques-ci.mjs` (Node 22, sans dépendance) calcule ces métriques à partir de l'historique du workflow CI, lu par l'API de GitHub. Les définitions retenues (déploiement, échec, rétablissement, délai de livraison) sont en tête du script.
+- Le workflow `Métriques` le lance après chaque run CI sur `main`, chaque lundi et à la demande. Il affiche le rapport dans le récapitulatif du run et publie le rapport et les fichiers des badges sur la branche `metriques`, réécrite à chaque calcul.
+
+Pour calculer les métriques en local :
+
+```shell
+node scripts/metriques-ci.mjs --cache /tmp/metriques-ci > metriques.md
+```
+
+- Sans jeton, l'API de GitHub accepte 60 requêtes par heure, et un calcul en consomme environ 50. La variable `GITHUB_TOKEN` relève cette limite.
+- `--cache` garde les réponses sur disque : un second calcul ne fait plus aucune requête. Vider le dossier pour prendre en compte les nouveaux runs.
 
 ### Images Docker
 

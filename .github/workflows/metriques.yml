@@ -1,0 +1,60 @@
+# Métriques DORA et KPI du pipeline, recalculées après chaque run CI sur main, chaque lundi et à la demande.
+# Le rapport complet s'affiche dans le récapitulatif du run ; les valeurs DORA sont publiées sous forme de fichiers
+# JSON sur la branche « metriques », d'où les badges du README les lisent (shields.io, badge « endpoint »).
+# Seul workflow autorisé à écrire dans le dépôt, et uniquement sur cette branche, réécrite à chaque calcul.
+# Un push fait avec GITHUB_TOKEN ne déclenche aucun workflow : la CI n'est pas relancée, le calcul n'est pas faussé.
+
+name: Métriques
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: "41 6 * * 1" # chaque lundi, 06:41 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true # chaque calcul repart de tout l'historique : seul le plus récent compte
+
+jobs:
+  metriques:
+    name: Calcul des métriques et badges
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read # historique des runs et des jobs
+      pull-requests: read # pull requests et leurs commits (délai de livraison)
+      contents: write # publication de la branche metriques
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+
+      - name: Calcul des métriques
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/metriques"
+          node scripts/metriques-ci.mjs --badges "$RUNNER_TEMP/metriques" > "$RUNNER_TEMP/metriques/metriques.md"
+          cat "$RUNNER_TEMP/metriques/metriques.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publication sur la branche metriques
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        working-directory: ${{ runner.temp }}/metriques
+        run: |
+          git init -q -b metriques
+          git add .
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "chore: métriques du pipeline au $(date -u +%d/%m/%Y)"
+          git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" metriques
