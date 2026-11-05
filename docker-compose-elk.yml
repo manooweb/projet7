@@ -1,5 +1,6 @@
 # Monitoring local de MicroCRM avec la stack ELK (poste de développement, hors CI/CD).
-# Lancement : docker compose -f docker-compose-elk.yml up -d --wait, puis Kibana sur http://localhost:5601
+# Lancement : docker compose -f docker-compose-elk.yml up -d, puis Kibana sur http://localhost:5601
+# (sans --wait : kibana-setup s'arrête après l'import du tableau de bord, ce que --wait prend pour un échec)
 # Chaîne : Filebeat lit les logs des conteneurs MicroCRM -> Logstash les structure -> Elasticsearch les stocke -> Kibana les affiche.
 # Sécurité désactivée (pas de mot de passe ni de TLS) : acceptable uniquement en local, d'où des ports ouverts sur 127.0.0.1 seulement.
 

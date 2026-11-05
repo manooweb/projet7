@@ -2,7 +2,7 @@
    <img src="./front/src/favicon.png" width="192px" />
 </p>
 
-# MicroCRM (P7 - Développeur Full-Stack - Java et Angular - Mettez en œuvre l'intégration et le déploiement continu d'une application Full-Stack)
+# MicroCRM
 
 [![CI](https://github.com/manooweb/projet7/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/manooweb/projet7/actions/workflows/ci.yml)
 
@@ -10,7 +10,7 @@ Back :<br/> [![Quality gate back](https://sonarcloud.io/api/project_badges/measu
 Front :<br/> [![Quality gate front](https://sonarcloud.io/api/project_badges/measure?project=manooweb_projet7_front&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=manooweb_projet7_front) [![Couverture front](https://sonarcloud.io/api/project_badges/measure?project=manooweb_projet7_front&metric=coverage)](https://sonarcloud.io/summary/new_code?id=manooweb_projet7_front)<br/>
 DORA :<br/> [![Fréquence de déploiement](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmanooweb%2Fprojet7%2Fmetriques%2Ffrequence-deploiement.json)](https://github.com/manooweb/projet7/blob/metriques/metriques.md) [![Délai de livraison](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmanooweb%2Fprojet7%2Fmetriques%2Fdelai-livraison.json)](https://github.com/manooweb/projet7/blob/metriques/metriques.md) [![Taux d'échec des changements](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmanooweb%2Fprojet7%2Fmetriques%2Ftaux-echec.json)](https://github.com/manooweb/projet7/blob/metriques/metriques.md) [![Temps de rétablissement](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmanooweb%2Fprojet7%2Fmetriques%2Fmttr.json)](https://github.com/manooweb/projet7/blob/metriques/metriques.md)
 
-MicroCRM est une application de démonstration basique ayant pour être objectif de servir de socle pour le module "P7 - Développeur Full-Stack".
+MicroCRM est une application full-stack (API Spring Boot, interface Angular), construite, testée, analysée et publiée par une chaîne d'intégration et de déploiement continus ([voir plus bas](#intégration-et-déploiement-continus)).
 
 L'application MicroCRM est une implémentation simplifiée d'un ["CRM" (Customer Relationship Management)](https://fr.wikipedia.org/wiki/Gestion_de_la_relation_client). Les fonctionnalités sont limitées à la création, édition et la visualisations des individus liés à des organisations.
 
@@ -32,7 +32,7 @@ Ce [monorepo](https://en.wikipedia.org/wiki/Monorepo) contient les 2 composantes
 
 ##### Dépendances
 
-- [OpenJDK >= 17](https://openjdk.org/)
+- [OpenJDK](https://openjdk.org/) 17 à 21 : Gradle 8.7 ne s'exécute pas au-delà de Java 21. La CI et les images utilisent Java 21.
 
 ##### Procédure
 
@@ -281,3 +281,45 @@ docker run -it --rm -p 8080:8080 -p 80:80 -p 443:443 orion-microcrm-standalone:l
 ```
 
 L'application sera disponible sur https://localhost et l'API sur http://localhost:8080.
+
+## Intégration et déploiement continus
+
+### Pipeline
+
+Le workflow `CI` (`.github/workflows/ci.yml`) se déclenche sur une pull request vers `main`, un push sur `main`, chaque nuit (02:23 UTC) et à la demande (onglet *Actions*, *Run workflow*).
+
+| Job | Quand | Rôle |
+|---|---|---|
+| Back | Toujours | Build Gradle, tests JUnit, couverture JaCoCo, analyse SonarQube Cloud |
+| Front | Toujours | `npm ci`, tests Karma (Chrome headless), couverture lcov, build Angular, analyse SonarQube Cloud |
+| Image back, Image front | Toujours, après Back et Front | Build de l'image, rapport Trivy ; publication sur GHCR (tag du SHA) sur un push vers `main` seulement |
+| Test de fumée | Push sur `main` | Démarre les images publiées avec `docker-compose.yml`, interroge l'API et le front |
+| Promotion latest | Push sur `main`, après le test de fumée | Fait pointer `latest` sur les images testées (même digest) |
+
+Le récapitulatif de chaque run donne la synthèse Trivy des deux images ; les rapports de tests et de couverture sont conservés 14 jours en artefacts.
+
+### Choix techniques
+
+- **Ce qui bloque** : un échec du build ou des tests. Une règle de protection de `main` impose une pull request et exige que les jobs Back, Front et Images aient réussi.
+- **Ce qui rend compte sans bloquer** : la quality gate SonarQube et le scan Trivy. Ils mesurent la dette de l'application existante, traitée par le plan de mise à jour, sans arrêter la livraison. Une faille acceptée faute de correctif est inscrite, justifiée et datée, dans `.trivyignore.yaml`.
+- **`latest` ne désigne que des images testées** : il n'avance qu'après le test de fumée. Une image publiée mais défaillante n'est jamais récupérée par défaut.
+- **Actions fixées par SHA de commit**, version en commentaire : un tag peut être déplacé, un SHA non.
+- **Permissions minimales** : lecture seule par défaut ; écriture des paquets pour les seuls jobs Images et Promotion ; écriture dans le dépôt pour le seul workflow `Métriques`, sur sa branche `metriques`.
+- **Exécution nocturne** : elle révèle ce qui change sans nouveau commit (faille publiée après coup, dépendance ou image de base modifiée). Elle ne publie rien.
+
+### Secrets
+
+| Secret | Usage |
+|---|---|
+| `SONAR_TOKEN_BACK`, `SONAR_TOKEN_FRONT` | Un jeton SonarQube Cloud par projet, à créer dans *Settings > Secrets and variables > Actions* |
+| `GITHUB_TOKEN` | Fourni par GitHub à chaque run : publication sur GHCR, écriture de la branche `metriques` |
+
+Sans jeton SonarQube (pull request d'un fork ou de Dependabot), l'analyse est sautée et le reste du pipeline s'exécute. Aucun secret n'est écrit dans le code, les images ou les logs.
+
+### Mises à jour des dépendances
+
+Dependabot (`.github/dependabot.yml`) propose chaque semaine les mises à jour des actions GitHub, des dépendances npm et Gradle et des images du `Dockerfile`, groupées par écosystème (une pull request par image Docker). Il attend 7 jours avant de proposer une version tout juste publiée, et écarte les montées de version majeure de npm, Gradle et des images, qui relèvent du plan de mise à jour. Chaque pull request passe la CI comme un changement de code.
+
+### Métriques
+
+Le workflow `Métriques` calcule les métriques DORA et les KPI du pipeline après chaque run CI sur `main` : voir [Métriques DORA et KPI du pipeline](#métriques-dora-et-kpi-du-pipeline).
