@@ -4,10 +4,11 @@
 
 # MicroCRM (P7 - Développeur Full-Stack - Java et Angular - Mettez en œuvre l'intégration et le déploiement continu d'une application Full-Stack)
 
-[![Fréquence de déploiement](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmanooweb%2Fprojet7%2Fmetriques%2Ffrequence-deploiement.json)](https://github.com/manooweb/projet7/blob/metriques/metriques.md)
-[![Délai de livraison](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmanooweb%2Fprojet7%2Fmetriques%2Fdelai-livraison.json)](https://github.com/manooweb/projet7/blob/metriques/metriques.md)
-[![Taux d'échec des changements](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmanooweb%2Fprojet7%2Fmetriques%2Ftaux-echec.json)](https://github.com/manooweb/projet7/blob/metriques/metriques.md)
-[![Temps de rétablissement](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmanooweb%2Fprojet7%2Fmetriques%2Fmttr.json)](https://github.com/manooweb/projet7/blob/metriques/metriques.md)
+[![CI](https://github.com/manooweb/projet7/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/manooweb/projet7/actions/workflows/ci.yml)
+
+Back :<br/> [![Quality gate back](https://sonarcloud.io/api/project_badges/measure?project=manooweb_projet7_back&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=manooweb_projet7_back) [![Couverture back](https://sonarcloud.io/api/project_badges/measure?project=manooweb_projet7_back&metric=coverage)](https://sonarcloud.io/summary/new_code?id=manooweb_projet7_back)
+Front :<br/> [![Quality gate front](https://sonarcloud.io/api/project_badges/measure?project=manooweb_projet7_front&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=manooweb_projet7_front) [![Couverture front](https://sonarcloud.io/api/project_badges/measure?project=manooweb_projet7_front&metric=coverage)](https://sonarcloud.io/summary/new_code?id=manooweb_projet7_front)<br/>
+DORA :<br/> [![Fréquence de déploiement](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmanooweb%2Fprojet7%2Fmetriques%2Ffrequence-deploiement.json)](https://github.com/manooweb/projet7/blob/metriques/metriques.md) [![Délai de livraison](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmanooweb%2Fprojet7%2Fmetriques%2Fdelai-livraison.json)](https://github.com/manooweb/projet7/blob/metriques/metriques.md) [![Taux d'échec des changements](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmanooweb%2Fprojet7%2Fmetriques%2Ftaux-echec.json)](https://github.com/manooweb/projet7/blob/metriques/metriques.md) [![Temps de rétablissement](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmanooweb%2Fprojet7%2Fmetriques%2Fmttr.json)](https://github.com/manooweb/projet7/blob/metriques/metriques.md)
 
 MicroCRM est une application de démonstration basique ayant pour être objectif de servir de socle pour le module "P7 - Développeur Full-Stack".
 
