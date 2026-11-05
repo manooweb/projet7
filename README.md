@@ -197,7 +197,7 @@ Formats des logs : le back écrit en JSON grâce au profil Spring `docker`, acti
 
 2. Après environ une minute, ouvrir le tableau de bord *MicroCRM – logs de l'application* : http://localhost:5601/app/dashboards#/view/microcrm-tableau-de-bord
 
-3. Pour alimenter le tableau de bord, générer du trafic de démonstration (requêtes normales, 404, 500, avertissement SQL) :
+3. Pour alimenter le tableau de bord, générer du trafic de démonstration (requêtes normales, 404, 500) :
 
     ```shell
     elk/generer-trafic.sh 60
